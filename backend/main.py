@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 from collections import defaultdict
 import spacy
 from langdetect import detect
+import subprocess
 
 # Transformers (optional)
 try:
@@ -29,7 +30,13 @@ app.add_middleware(
 
 # Globals
 transformer_classifier: Optional[Any] = None
-nlp = spacy.load("en_core_web_sm")
+
+# --- SpaCy model load with fallback ---
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    nlp = spacy.load("en_core_web_sm")
 
 
 @app.on_event("startup")
