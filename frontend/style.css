@@ -1,0 +1,46 @@
+/* styles.css - UI + gauge styles (keeps Tailwind styling for layout) */
+body { font-family: 'Inter', sans-serif; }
+
+/* gauge styling */
+.gauge-container {
+    position: relative;
+    width: 100%;
+    padding-top: 66.66%; /* keeps aspect ratio */
+    overflow: hidden;
+}
+.gauge-fill {
+    position: absolute;
+    top: -50%;
+    left: 0;
+    width: 100%;
+    height: 200%;
+    border-radius: 50%;
+    transform-origin: bottom center;
+    transform: rotate(45deg);
+    background-color: #f87171; /* default red */
+    transition: transform 800ms cubic-bezier(.2,.8,.2,1), background-color 400ms;
+}
+.gauge-cover {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 72%;
+    height: 72%;
+    background-color: #0f172a; /* matches dark bg */
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+.gauge-container .absolute { position: absolute; top: 0; left: 0; }
+
+/* table basic style (small) */
+table.min-w-full { width: 100%; border-collapse: collapse; }
+table.min-w-full thead th { text-align: left; color: #cbd5e1; padding: 8px; background: rgba(148,163,184,0.04); }
+table.min-w-full tbody td { padding: 8px; border-top: 1px solid rgba(255,255,255,0.03); color: #e2e8f0; }
+
+/* small responsiveness */
+@media (max-width: 768px) {
+  .gauge-container { width: 75%; margin: 0 auto; padding-top: 70%; }
+}
+
+/* small tweaks */
+#results { font-size: 13px; }

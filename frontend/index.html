@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentiment Dashboard</title>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<!-- PapaParse -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans">
+
+<div class="min-h-screen p-6 space-y-6">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+        <h1 class="text-2xl font-bold">Sentiment Dashboard</h1>
+        <input id="searchInput" type="text" placeholder="Search..." class="bg-gray-700 text-gray-200 px-3 py-2 rounded"/>
+    </header>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+
+        <!-- LEFT: Controls -->
+        <aside class="space-y-4 lg:col-span-1">
+            <div class="bg-gray-800 p-4 rounded-lg space-y-3">
+                <label>Upload CSV (must contain text column)</label>
+                <input type="file" id="csvUpload" class="text-gray-200"/>
+
+                <label>Model</label>
+                <select id="modelSelect" class="w-full p-2 bg-gray-700 rounded">
+                    <option value="textblob">TextBlob</option>
+                    <option value="vader">VADER</option>
+                    <option value="transformers">Transformers</option>
+                </select>
+
+                <label>Output Type</label>
+                <select id="outputType" class="w-full p-2 bg-gray-700 rounded">
+                    <option value="detailed">Detailed</option>
+                    <option value="summary">Summary</option>
+                </select>
+
+                <label>Visualization</label>
+                <select id="vizType" class="w-full p-2 bg-gray-700 rounded">
+                    <option value="bar">Bar</option>
+                    <option value="line">Line</option>
+                    <option value="pie">Pie</option>
+                </select>
+
+                <button id="applyBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded">Apply</button>
+                <button id="exportBtn" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded">Export CSV</button>
+            </div>
+
+            <!-- Gauge -->
+            <div class="bg-gray-800 p-4 rounded-lg hidden" id="gaugeCard">
+                <h2 class="font-semibold mb-2">Overall Sentiment</h2>
+                <div class="relative w-40 h-40 mx-auto">
+                    <canvas id="gaugeChart"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="gaugePercent" class="text-white text-2xl font-bold">0%</span>
+                        <span id="gaugeLabel" class="text-gray-400">Neutral</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- RIGHT: Charts -->
+        <section class="lg:col-span-2 space-y-6 hidden" id="chartsSection">
+            <canvas id="sentimentChart" class="bg-gray-800 p-4 rounded-lg"></canvas>
+        </section>
+    </div>
+</div>
+
+<script>
+let uploadedFile;
+let sentimentData = [];
+let chartInstance;
+let gaugeInstance;
+
+document.getElementById("csvUpload").addEventListener("change", (e) => {
+    uploadedFile = e.target.files[0];
+});
+
+document.getElementById("applyBtn").addEventListener("click", async () => {
+    if (!uploadedFile) {
+        alert("Please upload a CSV file.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", uploadedFile);
+    formData.append("model_type", document.getElementById("modelSelect").value);
+    formData.append("output_type", document.getElementById("outputType").value);
+    formData.append("viz_type", document.getElementById("vizType").value);
+
+    try {
+        const res = await fetch("http://127.0.0.1:8000/analyze-sentiment", {
+            method: "POST",
+            body: formData
+        });
+        const data = await res.json();
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        sentimentData = data.results.length > 0 ? data.results : [];
+        updateGauge(data.summary);
+        renderChart(data.summary, document.getElementById("vizType").value);
+        document.getElementById("chartsSection").classList.remove("hidden");
+        document.getElementById("gaugeCard").classList.remove("hidden");
+    } catch (err) {
+        console.error(err);
+        alert("Error analyzing sentiment.");
+    }
+});
+
+function updateGauge(summary) {
+    const total = summary.total;
+    const positivePct = summary.positive_pct;
+    const negativePct = summary.negative_pct;
+    const neutralPct = summary.neutral_pct;
+    const gaugePercent = document.getElementById("gaugePercent");
+    const gaugeLabel = document.getElementById("gaugeLabel");
+
+    let mainLabel = "Neutral";
+    let mainPct = neutralPct;
+    if (positivePct >= negativePct && positivePct >= neutralPct) {
+        mainLabel = "Positive";
+        mainPct = positivePct;
+    } else if (negativePct >= positivePct && negativePct >= neutralPct) {
+        mainLabel = "Negative";
+        mainPct = negativePct;
+    }
+
+    gaugePercent.textContent = mainPct + "%";
+    gaugeLabel.textContent = mainLabel;
+
+    if (gaugeInstance) gaugeInstance.destroy();
+
+    gaugeInstance = new Chart(document.getElementById("gaugeChart"), {
+        type: 'doughnut',
+        data: {
+            labels: ['Positive','Neutral','Negative'],
+            datasets:[{
+                data:[positivePct,neutralPct,negativePct],
+                backgroundColor:['#22c55e','#9ca3af','#ef4444'],
+                borderWidth:0
+            }]
+        },
+        options: {
+            rotation: -90,
+            circumference: 180,
+            plugins:{legend:{display:false}},
+            cutout:'70%'
+        }
+    });
+}
+
+function renderChart(summary, type) {
+    const ctx = document.getElementById("sentimentChart").getContext("2d");
+    const data = {
+        labels: ['Positive','Neutral','Negative'],
+        datasets:[{
+            label:'Sentiment Count',
+            data:[summary.counts.Positive, summary.counts.Neutral, summary.counts.Negative],
+            backgroundColor:['#22c55e','#9ca3af','#ef4444']
+        }]
+    };
+
+    if(chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(ctx,{
+        type: type === 'pie' ? 'pie' : type === 'line' ? 'line' : 'bar',
+        data: data,
+        options: {responsive:true, plugins:{legend:{position:'top'}}}
+    });
+}
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+    if(!sentimentData.length) return;
+    const csv = Papa.unparse(sentimentData);
+    const blob = new Blob([csv], {type: "text/csv"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "sentiment_results.csv";
+    link.click();
+});
+
+document.getElementById("searchInput").addEventListener("input", (e)=>{
+    const query = e.target.value.toLowerCase();
+    const filtered = sentimentData.filter(r=>r.text.toLowerCase().includes(query));
+    if(chartInstance) chartInstance.destroy();
+    const summary = {total:filtered.length, counts:{Positive:0,Neutral:0,Negative:0}, positive_pct:0, neutral_pct:0, negative_pct:0};
+    filtered.forEach(r=>{
+        summary.counts[r.sentiment] = (summary.counts[r.sentiment] || 0)+1;
+    });
+    if(summary.total>0){
+        summary.positive_pct = (summary.counts.Positive/summary.total*100).toFixed(2);
+        summary.neutral_pct = (summary.counts.Neutral/summary.total*100).toFixed(2);
+        summary.negative_pct = (summary.counts.Negative/summary.total*100).toFixed(2);
+    }
+    renderChart(summary, document.getElementById("vizType").value);
+    updateGauge(summary);
+});
+</script>
+</body>
+</html>
