@@ -107,33 +107,27 @@ nlp: Optional[Any] = None
 
 @app.on_event("startup")
 def load_resources():
+    """Load lightweight resources only; avoid downloads during deployment startup."""
     global transformer_classifier, absa_pipeline, vader_analyzer, nlp
-    nltk.download("vader_lexicon", quiet=True)
+
+    transformer_classifier = None
+    absa_pipeline = None
+    nlp = None
 
     try:
-        nlp = spacy.load("en_core_web_sm")
-    except OSError:
-        subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"], check=True)
-        nlp = spacy.load("en_core_web_sm")
-
-    vader_analyzer = SentimentIntensityAnalyzer()
-
-    if pipeline:
+        vader_analyzer = SentimentIntensityAnalyzer()
+    except LookupError:
         try:
-            transformer_classifier = pipeline("sentiment-analysis")
-        except Exception as e:
-            logger.error(f"Failed to load transformer sentiment classifier: {e}")
-            transformer_classifier = None
+            nltk.download("vader_lexicon", quiet=True)
+            vader_analyzer = SentimentIntensityAnalyzer()
+        except Exception as exc:
+            logger.warning("VADER resource unavailable: %s", exc)
+            vader_analyzer = None
+    except Exception as exc:
+        logger.warning("VADER initialization failed: %s", exc)
+        vader_analyzer = None
 
-        try:
-            absa_pipeline = pipeline(
-                "text-classification",
-                model="distilbert-base-uncased-finetuned-sst-2-english"
-            )
-        except Exception as e:
-            logger.error(f"Failed to load ABSA pipeline: {e}")
-            absa_pipeline = None
-
+    logger.info("Lightweight startup complete; optional NLP models are disabled.")
 
 # --------------------------- Helper Functions --------------------------- #
 def map_label_from_transformer(label: str) -> str:
