@@ -11,8 +11,6 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import nltk
 import io
 from typing import List, Dict, Any, Optional
-import spacy
-import subprocess
 import logging
 from passlib.context import CryptContext
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -21,11 +19,6 @@ from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
 from collections import Counter
 
-# Optional Transformers
-try:
-    from transformers import pipeline
-except Exception:
-    pipeline = None
 
 # --------------------------- App Config --------------------------- #
 app = FastAPI(title="Sentiment & ABSA API", version="2.3.0")
@@ -117,33 +110,15 @@ def initialize_database():
 
 @app.on_event("startup")
 def load_resources():
-    """Load lightweight resources only; avoid downloads during deployment startup."""
+    """Keep web-server startup independent of external services."""
     global transformer_classifier, absa_pipeline, vader_analyzer, nlp
 
     transformer_classifier = None
     absa_pipeline = None
     nlp = None
+    vader_analyzer = None
 
-    try:
-        vader_analyzer = SentimentIntensityAnalyzer()
-    except LookupError:
-        try:
-            nltk.download("vader_lexicon", quiet=True)
-            vader_analyzer = SentimentIntensityAnalyzer()
-        except Exception as exc:
-            logger.warning("VADER resource unavailable: %s", exc)
-            vader_analyzer = None
-    except Exception as exc:
-        logger.warning("VADER initialization failed: %s", exc)
-        vader_analyzer = None
-
-    threading.Thread(
-        target=initialize_database,
-        name="database-initializer",
-        daemon=True,
-    ).start()
-
-    logger.info("Lightweight startup complete; optional NLP models are disabled.")
+    logger.info("Minimal startup complete; database and NLP initialization deferred.")
 
 # --------------------------- Helper Functions --------------------------- #
 def map_label_from_transformer(label: str) -> str:
