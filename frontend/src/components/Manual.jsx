@@ -15,7 +15,7 @@ import {
   Feather,
 } from "lucide-react";
 
-import "../Manual.css";
+import "../manual.css";
 
 // --- Model Configuration ---
 const modelMap = {
