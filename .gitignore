@@ -1,16 +1,30 @@
-# Virtual environment
+# Python environments
 .venv/
+venv/
+env/
 
-# Python cache
+# Python generated files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*.backup-*
 
-# Environment variables
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+!.env.*.example
 
-# Mac system files
+# Local user data and databases
+users.json
+*.db
+*.sqlite
+*.sqlite3
+
+# Node.js and frontend builds
+node_modules/
+dist/
+frontend/dist/
+
+# Local and operating system files
 .DS_Store
-.venv/
-.venv/
+*.local

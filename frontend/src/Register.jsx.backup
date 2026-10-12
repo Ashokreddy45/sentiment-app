@@ -1,0 +1,114 @@
+import React, { useState } from "react";
+import "./Login.css";
+
+export default function Register({ goToLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage("");
+
+    if (password !== confirm) {
+      setMessage("⚠️ Passwords do not match!");
+      return;
+    }
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setMessage("✅ Registration successful! Redirecting to login...");
+        setIsSuccess(true);
+
+        // Wait 2 seconds before redirecting
+        setTimeout(() => {
+          goToLogin();
+        }, 2000);
+      } else {
+        setMessage(data.detail || "❌ Registration failed. Please try again.");
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage("🚫 Error connecting to server. Please try later.");
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <h1 className="login-title">Create Account</h1>
+        <p className="login-subtitle">Register to continue</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <label>Email</label>
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isSuccess}
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Password</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isSuccess}
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Confirm Password</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              disabled={isSuccess}
+            />
+          </div>
+
+          <button type="submit" className="login-btn" disabled={isSuccess}>
+            {isSuccess ? "Registered ✔" : "Register"}
+          </button>
+        </form>
+
+        <p
+          style={{
+            color: isSuccess ? "green" : "red",
+            marginTop: "10px",
+            fontWeight: 500,
+          }}
+        >
+          {message}
+        </p>
+
+        {!isSuccess && (
+          <div className="auth-links">
+            <button onClick={goToLogin} className="link-btn">
+              Back to Login
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
