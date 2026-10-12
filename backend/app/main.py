@@ -1,4 +1,5 @@
 import os
+import threading
 from dotenv import load_dotenv
 from sqlalchemy.engine import URL
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Body, Depends
@@ -84,7 +85,7 @@ class AnalysisHistory(Base):
     analysis_date = Column(DateTime, default=datetime.utcnow)
 
 
-Base.metadata.create_all(bind=engine)
+# Database tables are initialized asynchronously during startup.
 
 
 def get_db():
@@ -103,6 +104,15 @@ transformer_classifier: Optional[Any] = None
 absa_pipeline: Optional[Any] = None
 vader_analyzer: Optional[Any] = None
 nlp: Optional[Any] = None
+
+
+def initialize_database():
+    """Initialize database tables without blocking the web server port."""
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database table initialization completed.")
+    except Exception:
+        logger.exception("Database initialization failed; check DB environment variables and connectivity.")
 
 
 @app.on_event("startup")
@@ -126,6 +136,12 @@ def load_resources():
     except Exception as exc:
         logger.warning("VADER initialization failed: %s", exc)
         vader_analyzer = None
+
+    threading.Thread(
+        target=initialize_database,
+        name="database-initializer",
+        daemon=True,
+    ).start()
 
     logger.info("Lightweight startup complete; optional NLP models are disabled.")
 
